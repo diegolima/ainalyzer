@@ -84,5 +84,5 @@ fi
 
 echo "🎉 AInalyzer installed! Run commands like:"
 echo "    analyze_on_fail your_command_here"
-echo "💡 To turn on automatic error analyzis, run this command:
+echo "💡 To turn on automatic error analyzis, run this command:"
 echo "    ainalyzer mode monitor"
