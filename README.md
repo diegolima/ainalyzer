@@ -141,11 +141,13 @@ AInalyzer utilizes local LLMs for several key benefits:
   * **Ollama:** [https://ollama.com/](https://ollama.com/) AInalyzer relies on Ollama to run language models locally. The installer attempts to install it if not found.
 
 ## Contributing
+
 Contributions are welcome! Feel free to open issues for bug reports or suggest enhancements.
 
 ## License
 
 This project is licensed under the **GNU General Public License v3.0**. See [GPL v3 License](https://www.gnu.org/licenses/gpl-3.0.en.html) for more details.
+
 -----
 
 **Enjoy a smoother command-line experience with AInalyzer! 🚀**
