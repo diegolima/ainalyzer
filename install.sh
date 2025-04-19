@@ -7,6 +7,8 @@ CONFIG_FILE="$AINALYZER_DIR/config"
 WRAPPER_SOURCE="wrapper/failwrap.sh"
 WRAPPER_DEST="$AINALYZER_DIR/failwrap.sh"
 DEFAULT_MODEL="mistral"
+DEFAULT_LINES="10"
+DEFAULT_MODE="onrequest"
 
 echo "🧠 Installing AInalyzer..."
 
@@ -63,7 +65,8 @@ ollama pull "$DEFAULT_MODEL"
 # 5. Write config file
 cat > "$CONFIG_FILE" <<EOF
 model=$DEFAULT_MODEL
-lines=100
+lines=$DEFAULT_LINES
+mode=$DEFAULT_MODE
 EOF
 echo "✅ Wrote config to $CONFIG_FILE"
 
@@ -73,6 +76,7 @@ SOURCE_LINE="source \"$WRAPPER_DEST\""
 
 if ! grep -Fxq "$SOURCE_LINE" "$BASHRC"; then
     echo "$SOURCE_LINE" >> "$BASHRC"
+    $SOURCE_LINE
     echo "✅ Added AInalyzer wrapper to $BASHRC"
 else
     echo "ℹ️  Wrapper already sourced in $BASHRC"
@@ -80,4 +84,5 @@ fi
 
 echo "🎉 AInalyzer installed! Run commands like:"
 echo "    analyze_on_fail your_command_here"
-
+echo "💡 To turn on automatic error analyzis, run this command:
+echo "    ainalyzer mode monitor"
