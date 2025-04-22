@@ -6,7 +6,9 @@ AINALYZER_DIR="$HOME/.ainalyzer"
 CONFIG_FILE="$AINALYZER_DIR/config"
 WRAPPER_SOURCE="wrapper/failwrap.sh"
 WRAPPER_DEST="$AINALYZER_DIR/failwrap.sh"
-DEFAULT_MODEL="mistral"
+PREEXEC_URL="https://raw.githubusercontent.com/rcaloras/bash-preexec/master/bash-preexec.sh"
+PREEXEC_DEST="$AINALYZER_DIR/bash-preexec.sh"
+DEFAULT_MODEL="mistral:7b-instruct"
 DEFAULT_LINES="10"
 DEFAULT_MODE="onrequest"
 
@@ -21,7 +23,12 @@ cp "$WRAPPER_SOURCE" "$WRAPPER_DEST"
 chmod +x "$WRAPPER_DEST"
 echo "✅ Copied wrapper to $WRAPPER_DEST"
 
-# 3. Install Ollama
+# 3. Install bash-preexec
+echo "🔧 Installing bash-preexec..."
+curl -fsSL "$PREEXEC_URL" -o "$PREEXEC_DEST"
+echo "✅ bash-preexec installed at $PREEXEC_DEST"
+
+# 4. Install Ollama
 echo "🔍 Checking for Ollama..."
 
 if ! command -v ollama &> /dev/null; then
@@ -58,11 +65,11 @@ else
     echo "✅ Ollama already installed"
 fi
 
-# 4. Pull the model
+# 5. Pull the model
 echo "📦 Downloading model '$DEFAULT_MODEL'..."
 ollama pull "$DEFAULT_MODEL"
 
-# 5. Write config file
+# 6. Write config file
 cat > "$CONFIG_FILE" <<EOF
 model=$DEFAULT_MODEL
 lines=$DEFAULT_LINES
@@ -70,19 +77,32 @@ mode=$DEFAULT_MODE
 EOF
 echo "✅ Wrote config to $CONFIG_FILE"
 
-# 6. Add source line to .bashrc if not already present
+# 7. Add source lines to .bashrc if not already present
 BASHRC="$HOME/.bashrc"
-SOURCE_LINE="source \"$WRAPPER_DEST\""
+PREEXEC_LINE="source \"$PREEXEC_DEST\""
+WRAPPER_LINE="source \"$WRAPPER_DEST\""
 
-if ! grep -Fxq "$SOURCE_LINE" "$BASHRC"; then
-    echo "$SOURCE_LINE" >> "$BASHRC"
-    $SOURCE_LINE
-    echo "✅ Added AInalyzer wrapper to $BASHRC"
+# Insert between markers to avoid duplication
+START="# >>> AInalyzer >>>"
+END="# <<< AInalyzer <<<"
+
+if ! grep -q "$START" "$BASHRC"; then
+  {
+    echo "$START"
+    echo "$PREEXEC_LINE"
+    echo "$WRAPPER_LINE"
+    echo "$END"
+  } >> "$BASHRC"
+  echo "✅ AInalyzer block added to $BASHRC"
 else
-    echo "ℹ️  Wrapper already sourced in $BASHRC"
+  echo "ℹ️  AInalyzer block already in $BASHRC"
 fi
 
-echo "🎉 AInalyzer installed! Run commands like:"
+echo "🎉 AInalyzer installed! Please restart your shell or run:"
+echo "source ~/.bashrc"
+
+echo "After that, run commands like:"
 echo "    analyze_on_fail your_command_here"
-echo "💡 To turn on automatic error analyzis, run this command:"
+echo ""
+echo "💡 To turn on automatic error analysis, run this command:"
 echo "    ainalyzer mode monitor"

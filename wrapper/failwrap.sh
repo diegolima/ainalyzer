@@ -5,17 +5,15 @@
 # -------------------------------
 
 AINALYZER_CONFIG="$HOME/.ainalyzer/config"
-AINALYZER_TMP_OUTPUT="/tmp/ainalyzer_output.$$"
-AINALYZER_VERSION="0.1.0"
+AINALYZER_VERSION="0.2.0"
 
-# Redirect all shell session output (stdout + stderr) to temporary file
-exec 3>&1 4>&2
-exec > >(tee "$AINALYZER_TMP_OUTPUT") 2>&1
-
-# Defaults
 AINALYZER_MODEL=""
 AINALYZER_LINE_COUNT=10
 AINALYZER_MODE="onrequest"
+
+AINALYZER_LAST_CMD=""
+AINALYZER_TMP_OUTPUT=""
+AINALYZER_OUTPUT_LINE_OFFSET=0
 
 # -------------------------------
 # Load Config Function
@@ -56,9 +54,9 @@ ainalyzer() {
         model)
             if [[ -z "$2" ]]; then
                 echo "[AInalyzer] Suggested models:"
-                echo "  phi3.5   - phi3.5   - Lightweight, fast, and ideal for users without a GPU or with 4–6GB VRAM."
-                echo "  mistral  - Stronger 7B model for users with 6–8GB VRAM (e.g., RTX 4060+), best balance of power and speed."
-                echo "  llama3   - Advanced 8B model; requires 10–12GB VRAM or strong CPU setup."
+                echo "  llama3.2:3b         - Fast and lightweight 3B parameters model for CPU users or smaller GPUs (4–6GB VRAM)"
+                echo "  mistral:7b-instruct - More powerful 7B parameters model for larger GPUs (6–12GB VRAM)."
+                echo "  llama3.1:8b         - Large 8B parameters model for users with 12GB+ VRAM."
                 echo ""
                 echo "Current model: $AINALYZER_MODEL"
                 echo ""
@@ -129,6 +127,19 @@ __ainalyzer_analyze() {
 
     local output
     output=$(tail -n "$AINALYZER_LINE_COUNT" "$tmp_file" 2>/dev/null)
+    output=$(sed -e 's/[[:space:]]*$//' <<< "$output")
+
+    if [[ -z "$output" ]]; then
+        output="[no output captured from the failed command]"
+        return 0
+    else
+        if [[ $AINALYZER_DEBUG == "true" ]]; then
+            echo ""
+            echo "========= [AInalyzer - DEBUG] Sending the following output to the LLM: ========="
+            echo $output
+            echo "========= [AInalyzer - DEBUG] End of output ===================================="
+        fi
+    fi
 
     local prompt
     prompt=$(cat <<EOF
@@ -164,10 +175,13 @@ analyze_on_fail() {
     local tmp_output
     tmp_output=$(mktemp)
 
-    "$@" > >(tee -a "$tmp_output") 2> >(tee -a "$tmp_output" >&2)
+    (
+        trap '' SIGINT
+        "$@" > >(tee -a "$tmp_output") 2> >(tee -a "$tmp_output" >&2)
+    )
     local exit_code=$?
 
-    if [ $exit_code -ne 0 ]; then
+    if [ $exit_code -ne 0 ] && [ $exit_code -ne 130 ]; then
         __ainalyzer_analyze "$*" "$tmp_output" "$exit_code"
     fi
 
@@ -176,24 +190,45 @@ analyze_on_fail() {
 }
 
 # -------------------------------
-# Monitor Mode (automatic)
+# bash-preexec Hook Integration
 # -------------------------------
-__ainalyzer_preexec() {
-    __ainalyzer_load_config
-}
-
-__ainalyzer_postexec() {
-    local exit_code=$?
+preexec() {
     __ainalyzer_load_config
     [[ "$AINALYZER_MODE" != "monitor" ]] && return
 
-    if [ $exit_code -ne 0 ]; then
-        __ainalyzer_analyze "$(history 1)" "$AINALYZER_TMP_OUTPUT" "$exit_code"
-    fi
+    AINALYZER_LAST_CMD="$1"
+    AINALYZER_TMP_OUTPUT=$(mktemp)
+
+    # Save original FDs
+    exec 3>&1 4>&2
+    exec > >(tee -a "$AINALYZER_TMP_OUTPUT") 2>&1
+
+    # Record how many lines exist in the file before the command runs
+    AINALYZER_OUTPUT_LINE_OFFSET=$(wc -l < "$AINALYZER_TMP_OUTPUT")
 }
 
-# -------------------------------
-# Shell Hook
-# -------------------------------
-trap '__ainalyzer_preexec' DEBUG
-PROMPT_COMMAND='__ainalyzer_postexec'
+precmd() {
+    local exit_code=$?
+    __ainalyzer_load_config
+    [[ "$AINALYZER_MODE" != "monitor" ]] && return
+    [[ $exit_code -eq 0 || $exit_code -eq 130 ]] && return
+
+    # Restore stdout/stderr
+    exec 1>&3 2>&4
+
+    if [[ -n "$AINALYZER_LAST_CMD" && -f "$AINALYZER_TMP_OUTPUT" ]]; then
+        # Extract only output from the last command
+        local sliced_output
+        sliced_output=$(mktemp)
+        tail -n +"$((AINALYZER_OUTPUT_LINE_OFFSET + 1))" "$AINALYZER_TMP_OUTPUT" \
+            | tail -n "$AINALYZER_LINE_COUNT" > "$sliced_output"
+
+        __ainalyzer_analyze "$AINALYZER_LAST_CMD" "$sliced_output" "$exit_code"
+        rm -f "$sliced_output"
+        rm -f "$AINALYZER_TMP_OUTPUT"
+    fi
+
+    AINALYZER_LAST_CMD=""
+    AINALYZER_TMP_OUTPUT=""
+    AINALYZER_OUTPUT_LINE_OFFSET=0
+}
