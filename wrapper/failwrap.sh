@@ -5,7 +5,7 @@
 # -------------------------------
 
 AINALYZER_CONFIG="$HOME/.ainalyzer/config"
-AINALYZER_VERSION="0.2.0"
+AINALYZER_VERSION="0.2.1"
 
 AINALYZER_MODEL=""
 AINALYZER_LINE_COUNT=10
@@ -54,9 +54,9 @@ ainalyzer() {
         model)
             if [[ -z "$2" ]]; then
                 echo "[AInalyzer] Suggested models:"
-                echo "  llama3.2:3b         - Fast and lightweight 3B parameters model for CPU users or smaller GPUs (4–6GB VRAM)"
-                echo "  mistral:7b-instruct - More powerful 7B parameters model for larger GPUs (6–12GB VRAM)."
-                echo "  llama3.1:8b         - Large 8B parameters model for users with 12GB+ VRAM."
+                echo "  llama3.2:3b         - A fast and lightweight model offering a good balance of speed and reasonable understanding for basic error analysis."
+                echo "  mistral:7b-instruct - A more powerful model providing stronger reasoning capabilities and a good balance of power and speed for more complex errors."
+                echo "  llama3.1:8b         - A larger model that can offer the most comprehensive and nuanced analysis but requires significant resources."
                 echo ""
                 echo "Current model: $AINALYZER_MODEL"
                 echo ""
@@ -96,6 +96,82 @@ ainalyzer() {
             else
                 echo "(no config found)"
             fi
+            ;;
+                uninstall)
+            echo "[AInalyzer] Uninstall requested."
+
+            read -p "⚠️  Are you sure you want to uninstall AInalyzer? [y/N] " confirm
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                echo "[AInalyzer] Uninstall cancelled."
+                return 0
+            fi
+
+            # Remove sourced lines from .bashrc
+            BASHRC="$HOME/.bashrc"
+            START="# >>> AInalyzer >>>"
+            END="# <<< AInalyzer <<<"
+
+            if grep -q "$START" "$BASHRC"; then
+                sed -i.bak "/$START/,/$END/d" "$BASHRC"
+                echo "[AInalyzer] Removed lines from .bashrc"
+            else
+                echo "[AInalyzer] No AInalyzer block found in .bashrc"
+            fi
+
+            # Delete config + wrapper directory
+            if [[ -d "$HOME/.ainalyzer" ]]; then
+                rm -rf "$HOME/.ainalyzer"
+                echo "[AInalyzer] Deleted ~/.ainalyzer directory"
+            else
+                echo "[AInalyzer] ~/.ainalyzer not found"
+            fi
+
+            echo "[AInalyzer] Uninstallation complete."
+            echo "💡 You may want to run: source ~/.bashrc"
+            echo ""
+            echo "⚠️  Note: Ollama and any downloaded models were not removed."
+            echo "         These may still be using disk space."
+            echo ""
+            echo "💡 To remove the default model and free up space, you can run:"
+            echo "   ollama rm mistral:7b-instruct"
+            echo ""
+            echo "🧼 To list all Ollama models and remove others, run:"
+            echo "   ollama list"
+            echo "   ollama rm <model-name>"
+
+            # Detect OS and suggest Ollama uninstall command
+            OS_TYPE="$(uname -s)"
+            echo ""
+
+            case "$OS_TYPE" in
+                Linux)
+                    if command -v apt &>/dev/null; then
+                        echo "💣 To completely uninstall Ollama on Ubuntu/Debian, run:"
+                        echo "   sudo apt remove ollama"
+                    elif command -v dnf &>/dev/null; then
+                        echo "💣 To completely uninstall Ollama on Fedora, run:"
+                        echo "   sudo dnf remove ollama"
+                    elif command -v yum &>/dev/null; then
+                        echo "💣 To completely uninstall Ollama on CentOS/RHEL, run:"
+                        echo "   sudo yum remove ollama"
+                    else
+                        echo "💣 To remove Ollama manually, delete its files and binaries from:"
+                        echo "   ~/.ollama and /usr/local/bin/ollama (if applicable)"
+                    fi
+                    ;;
+                Darwin)
+                    if command -v brew &>/dev/null; then
+                        echo "💣 To completely uninstall Ollama on macOS (with Homebrew), run:"
+                        echo "   brew uninstall ollama"
+                    else
+                        echo "💣 To remove Ollama manually, delete:"
+                        echo "   /Applications/Ollama.app and /usr/local/bin/ollama"
+                    fi
+                    ;;
+                *)
+                    echo "💣 Unknown OS: $OS_TYPE. Please uninstall Ollama manually if needed."
+                    ;;
+            esac
             ;;
         version)
             echo "AInalyzer version $AINALYZER_VERSION"
@@ -162,7 +238,12 @@ Aim for a message of at most 10 lines (exceed only if absolutely necessary for c
 EOF
     )
 
-    echo "$prompt" | ollama run "$AINALYZER_MODEL"
+    local response
+    response=$(echo "$prompt" | ollama run "$AINALYZER_MODEL")
+
+    # Print AI output in cyan
+    echo -e "\e[36m$response\e[0m"
+
     echo "[AInalyzer] Done."
 }
 

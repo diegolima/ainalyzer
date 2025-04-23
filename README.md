@@ -1,6 +1,6 @@
 # AInalyzer – Automatic CLI Failure Analyzer Using Local AI Models (LLMs)
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg?cacheSeconds=2592000)](https://github.com/diegolima/ainalyzer/releases/tag/v0.2.0)
+[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg?cacheSeconds=2592000)](https://github.com/diegolima/ainalyzer/releases/tag/v0.2.1)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Supports Linux | macOS](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey)
 ![Requires Ollama](https://img.shields.io/badge/requires-Ollama-orange)
@@ -16,7 +16,7 @@ AInalyzer is a bash script designed to automatically analyze failed command-line
 * **On-Demand Analysis:** Explicitly analyze specific commands upon failure using the `analyze_on_fail` command.
 * **Powered by Local LLMs:** Leverages the speed, privacy, and offline capabilities of locally running models through Ollama.
 * **Configurable LLM:** Choose from various Ollama-compatible models to balance performance and analysis quality (defaults to `mistral:7b-instruct`).
-* **Adjustable Output Context:** Control the number of lines of the failed command's output sent for analysis.
+* **Adjustable Output Context:** Control the number of lines of the failed command's output (both stdout and stderr) sent for analysis.
 * **Simple Command-Line Interface:** Easily manage AInalyzer's settings (mode, model, lines) using the `ainalyzer` command.
 * **Hassle-Free Installation:** Includes an automated installer for easy setup on Linux and macOS, including the installation of `bash-preexec`.
 
@@ -134,7 +134,7 @@ The `ainalyzer` command also allows you to manage other settings:
     ainalyzer lines 5
     ```
 
-    This command sets the number of lines from the failed command's output (stderr + stdout) that will be sent to the LLM for analysis.
+    This command sets the number of lines from the failed command's output (both stdout and stderr) that will be sent to the LLM for analysis.
 
   * **View the current configuration:**
 
@@ -152,7 +152,7 @@ The `ainalyzer` command also allows you to manage other settings:
 
 ## How Automatic Analysis Works (`monitor` mode)
 
-When "monitor" mode is enabled, AInalyzer utilizes the `bash-preexec` tool to capture the output of each command *before* it executes. After the command finishes, AInalyzer checks its exit code. If the command failed (exited with a non-zero status), the captured output is analyzed using the configured LLM, and the results are displayed in your terminal.
+When "monitor" mode is enabled, AInalyzer utilizes the `bash-preexec` tool to capture the output (both stdout and stderr) of each command *before* it executes. After the command finishes, AInalyzer checks its exit code. If the command failed (exited with a non-zero status), the captured output is analyzed using the configured LLM, and the results are displayed in your terminal.
 
 ## Why Local LLMs?
 
@@ -162,6 +162,21 @@ AInalyzer utilizes local LLMs for several key benefits:
   * **Offline Use:** Ability to analyze errors even without an internet connection (after the model is downloaded).
   * **Privacy:** Your commands and their output are processed locally and never sent to a third-party service.
   * **No Service Fees:** Once set up, there are no recurring costs associated with using the analysis features.
+
+## Uninstallation
+
+To uninstall AInalyzer, you can use the built-in `uninstall` command:
+
+```bash
+ainalyzer uninstall
+```
+
+Running this command will:
+
+* Remove the lines added to your `~/.bashrc` by the installer.
+* Delete the `~/.ainalyzer` directory, which contains the configuration file and the AInalyzer script itself.
+
+**Note:** This command will **not** automatically remove Ollama or any downloaded language models. To remove these, please follow the instructions provided by the `ainalyzer uninstall` command after it has completed the AInalyzer-specific cleanup. This typically involves using your system's package manager (e.g., `apt`, `dnf`, `brew`) or manually deleting the Ollama application and its data directories.
 
 ## Dependencies
 
